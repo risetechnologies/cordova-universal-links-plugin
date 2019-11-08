@@ -9,13 +9,10 @@ Script only generates content. File it self is included in the xcode project in 
 var path = require('path');
 var fs = require('fs');
 var plist = require('plist');
-var mkpath = require('mkpath');
 var ConfigXmlHelper = require('../configXmlHelper.js');
 var ASSOCIATED_DOMAINS = 'com.apple.developer.associated-domains';
 var context;
-var projectRoot;
 var projectName;
-var entitlementsFilePath;
 
 module.exports = {
   generateAssociatedDomainsEntitlements: generateEntitlements
@@ -32,10 +29,10 @@ module.exports = {
 function generateEntitlements(cordovaContext, pluginPreferences) {
   context = cordovaContext;
 
-  var currentEntitlements = getEntitlementsFileContent();
-  var newEntitlements = injectPreferences(currentEntitlements, pluginPreferences);
-
-  saveContentToEntitlementsFile(newEntitlements);
+  getEntitlementsFileContent().forEach((currentEntitlement) => {
+    var newEntitlements = injectPreferences(currentEntitlement, pluginPreferences);
+    saveContentToEntitlementsFile(newEntitlements);
+  });
 }
 
 // endregion
@@ -49,13 +46,11 @@ function generateEntitlements(cordovaContext, pluginPreferences) {
  */
 function saveContentToEntitlementsFile(content) {
   var plistContent = plist.build(content);
-  var filePath = pathToEntitlementsFile();
 
-  // ensure that file exists
-  mkpath.sync(path.dirname(filePath));
-
-  // save it's content
-  fs.writeFileSync(filePath, plistContent, 'utf8');
+  pathToEntitlementsFiles().forEach((filePath) => {
+    // save it's content
+    fs.writeFileSync(filePath, plistContent, 'utf8');
+  });
 }
 
 /**
@@ -64,16 +59,16 @@ function saveContentToEntitlementsFile(content) {
  * @return {String} entitlements file content
  */
 function getEntitlementsFileContent() {
-  var pathToFile = pathToEntitlementsFile();
-  var content;
+  var results = pathToEntitlementsFiles().map((pathToFile) => {
+    try {
+      var content = fs.readFileSync(pathToFile, 'utf8');
+      return plist.parse(content);
+    } catch (err) {
+      return defaultEntitlementsFile();
+    }
+  });
 
-  try {
-    content = fs.readFileSync(pathToFile, 'utf8');
-  } catch (err) {
-    return defaultEntitlementsFile();
-  }
-
-  return plist.parse(content);
+  return results;
 }
 
 /**
@@ -140,12 +135,13 @@ function domainsListEntryForHost(host) {
  *
  * @return {String} absolute path to entitlements file
  */
-function pathToEntitlementsFile() {
-  if (entitlementsFilePath === undefined) {
-    entitlementsFilePath = path.join(getProjectRoot(), 'platforms', 'ios', getProjectName(), 'Resources', getProjectName() + '.entitlements');
-  }
+function pathToEntitlementsFiles() {
+  var entitlementsDirPath = path.join(getProjectRoot(), 'platforms', 'ios', getProjectName());
 
-  return entitlementsFilePath;
+  return [
+    path.join(entitlementsDirPath, 'Entitlements-Debug.plist'),
+    path.join(entitlementsDirPath, 'Entitlements-Release.plist'),
+  ];
 }
 
 /**
