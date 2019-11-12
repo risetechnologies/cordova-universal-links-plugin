@@ -3,7 +3,7 @@ Script creates entitlements file with the list of hosts, specified in config.xml
 File name is: ProjectName.entitlements
 Location: ProjectName/
 
-Script only generates content. File it self is included in the xcode project in another hook: xcodePreferences.js.
+Script only generates content.
 */
 
 var path = require('path');
